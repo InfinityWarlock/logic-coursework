@@ -8,10 +8,10 @@ clauses0=[[1, 2, 3], [4, 5, 6], [7, 8, 9], [-1, -2], [-1, -3], [-2, -3], [-4, -5
 
 #print(clauses0)
 
-import mpll19
+import tvnj.26
 
 start=time.time()
-print(mpll19.dpll_sat_solve(clauses0,[]))
+print(tvnj.26.dpll_sat_solve(clauses0,[]))
 end=time.time()
 print(end-start)
 
