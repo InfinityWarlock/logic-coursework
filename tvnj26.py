@@ -7,8 +7,8 @@ def load_dimacs(filename):
         while l1[0] == 'c':
             l1 = f.readline()
         l1 = l1.split(' ')
-        N = l1[2]
-        M = l1[3]
+        N = int(l1[2])
+        M = int(l1[3])
         count = 0
         clause_set = []
         while count < M:
@@ -17,8 +17,9 @@ def load_dimacs(filename):
                 line_list = line.split(' ')
                 count += 1
                 clause = []
+                # print(line_list)
                 for c in line_list:
-                    if c != '0':
+                    if c != '0' and c != '' and c != '0\n':
                         clause.append(int(c))
                 clause_set.append(clause)
         return clause_set, N
@@ -52,7 +53,7 @@ def simple_sat_solve(clause_set):
             return truth_assignment
     return False
 
-def branching_sat_solve(clause_set, partial_assignment):
+def branching_sat_solve(clause_set, partial_assignment=[]):
     flat_list = []
     for clause in clause_set:
         flat_list.extend(clause)
@@ -63,7 +64,7 @@ def branching_sat_solve(clause_set, partial_assignment):
         else:
             variables.add(0-i)
     new_clause_set = copy.deepcopy(clause_set)
-    # print('1', new_clause_set, partial_assignment)
+    # print('1', partial_assignment, new_clause_set)
     for i in partial_assignment:
         if i in variables or 0-i in variables:
             for clause in new_clause_set:
@@ -74,7 +75,7 @@ def branching_sat_solve(clause_set, partial_assignment):
                     # new_clause_set[]
             variables.discard(i)
             variables.discard(0-i)
-    # print('2', new_clause_set, partial_assignment)
+    # print('2', partial_assignment, new_clause_set)
     if variables == set():
         if new_clause_set == []:
             return partial_assignment
@@ -93,5 +94,7 @@ def branching_sat_solve(clause_set, partial_assignment):
         return negative_branch_result
     return False   
 
-print(simple_sat_solve(clauses0))
-print(branching_sat_solve(clauses0, []))
+clauses1, N = load_dimacs('dimacs.txt')
+
+print(simple_sat_solve(clauses1))
+print('result', branching_sat_solve(clauses1, []))
