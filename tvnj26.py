@@ -1,5 +1,4 @@
 import copy
-clauses0=[[1, 2, 3], [4, 5, 6], [7, 8, 9], [-1, -2], [-1, -3], [-2, -3], [-4, -5], [-4, -6], [-5, -6], [-7, -8], [-7, -9], [-8, -9], [1, 4, 7], [2, 5, 8], [3, 6, 9], [-1, -4], [-1, -7], [-4, -7], [-2, -5], [-2, -8], [-5, -8], [-3, -6], [-3, -9], [-6, -9], [1, 8], [-1, -8], [4, 2], [-2, -4]]
 
 def load_dimacs(filename):
     with open(filename, 'r') as f:
@@ -7,7 +6,6 @@ def load_dimacs(filename):
         while l1[0] == 'c':
             l1 = f.readline()
         l1 = l1.split(' ')
-        N = int(l1[2])
         M = int(l1[3])
         count = 0
         clause_set = []
@@ -17,12 +15,11 @@ def load_dimacs(filename):
                 line_list = line.split(' ')
                 count += 1
                 clause = []
-                # print(line_list)
                 for c in line_list:
                     if c != '0' and c != '' and c != '0\n':
                         clause.append(int(c))
                 clause_set.append(clause)
-        return clause_set, N
+        return clause_set
 
 def simple_sat_solve(clause_set):
     if clause_set == []:
@@ -64,18 +61,15 @@ def branching_sat_solve(clause_set, partial_assignment=[]):
         else:
             variables.add(0-i)
     new_clause_set = copy.deepcopy(clause_set)
-    # print('1', partial_assignment, new_clause_set)
     for i in partial_assignment:
         if i in variables or 0-i in variables:
             for clause in new_clause_set:
                 if i in clause:
                     new_clause_set = list(filter(lambda a: a != clause, new_clause_set))
                 elif 0-i in clause:
-                    clause.remove(0-i) #do same filter thing above here and hope it works lol
-                    # new_clause_set[]
+                    new_clause_set[new_clause_set.index(clause)] = list(filter(lambda a: a != 0-i, new_clause_set[new_clause_set.index(clause)]))
             variables.discard(i)
             variables.discard(0-i)
-    # print('2', partial_assignment, new_clause_set)
     if variables == set():
         if new_clause_set == []:
             return partial_assignment
@@ -92,9 +86,122 @@ def branching_sat_solve(clause_set, partial_assignment=[]):
         return positive_branch_result
     if negative_branch_result:
         return negative_branch_result
-    return False   
+    return False
 
-clauses1, N = load_dimacs('dimacs.txt')
+def unit_propagate(clause_set, dpll = False):
+    cont = True
+    new_clause_set = copy.deepcopy(clause_set)
+    chosen_literals = []
+    while cont:
+        cont = False
+        chosen = 0
+        for i in range(len(new_clause_set)):
+            if len(new_clause_set[i]) == 1:
+                cont = True
+                chosen = new_clause_set[i][0]
+                chosen_literals.append(chosen)
+                break
+        if cont:
+            for clause in new_clause_set:
+                if chosen in clause:
+                    new_clause_set = list(filter(lambda a: a != clause, new_clause_set))
+                elif 0-chosen in clause:
+                    new_clause_set[new_clause_set.index(clause)] = list(filter(lambda a: a != 0-chosen, new_clause_set[new_clause_set.index(clause)]))
+    if dpll:
+        return new_clause_set, chosen_literals
+    return new_clause_set
 
-print(simple_sat_solve(clauses1))
-print('result', branching_sat_solve(clauses1, []))
+def pure_literal_eliminate(clause_set, dpll = False):
+    new_clause_set = copy.deepcopy(clause_set)
+    pure_exist = True
+    pures = []
+    while pure_exist:
+        pure = 0
+        pure_exist = False
+        checked_literals = []
+        for clause in new_clause_set:
+            for l in clause:
+                if l not in checked_literals and 0-l not in checked_literals:
+                    pure = l
+                    for c in new_clause_set:
+                        if 0-l in c:
+                            pure = 0
+                            break
+                    if pure == l:
+                        pures.append(l)
+                        pure_exist = True
+                        break
+                    else:
+                        checked_literals.append(l)
+            if pure_exist:
+                break
+        for clause in new_clause_set:
+            if pure in clause:
+                new_clause_set = list(filter(lambda a: a != clause, new_clause_set))
+    if dpll:
+        return new_clause_set, pures
+    return new_clause_set
+        
+def dpll_sat_solve(clause_set, partial_assignment=[]):
+    flat_list = []
+    for clause in clause_set:
+        flat_list.extend(clause)
+    variables = set()
+    for i in flat_list:
+        if i > 0:
+            variables.add(i)
+        else:
+            variables.add(0-i)
+    new_clause_set = copy.deepcopy(clause_set)
+
+    for i in partial_assignment:
+        if i in variables or 0-i in variables:
+            for clause in new_clause_set:
+                if i in clause:
+                    new_clause_set = list(filter(lambda a: a != clause, new_clause_set))
+                elif 0-i in clause:
+                    # clause.remove(0-i) #do same filter thing above here and hope it works lol
+                    new_clause_set[new_clause_set.index(clause)] = list(filter(lambda a: a != 0-i, new_clause_set[new_clause_set.index(clause)]))
+            variables.discard(i)
+            variables.discard(0-i)
+
+    new_clause_set, chosen_literals = unit_propagate(new_clause_set, True)
+    new_clause_set, pures = pure_literal_eliminate(new_clause_set, True)
+    partial_assignment.extend(chosen_literals)
+    partial_assignment.extend(pures)
+
+    flat_list = []
+    for clause in new_clause_set:
+        flat_list.extend(clause)
+    new_variables = set()
+    for i in flat_list:
+        if i > 0:
+            new_variables.add(i)
+        else:
+            new_variables.add(0-i)
+
+    if new_variables == set():
+        if new_clause_set == []:
+            if variables == set():
+                return partial_assignment
+            for l in variables:
+                if l not in partial_assignment and 0-l not in partial_assignment:
+                    partial_assignment.append(l)
+            return partial_assignment
+        return False
+    
+    branch_var = list(new_variables)[0]
+    positive_partial_assignment = copy.copy(partial_assignment)
+    negative_partial_assignment = copy.copy(partial_assignment)
+    positive_partial_assignment.append(branch_var)
+    negative_partial_assignment.append(0-branch_var)
+    positive_branch_result = dpll_sat_solve(new_clause_set, positive_partial_assignment)
+    negative_branch_result = dpll_sat_solve(new_clause_set, negative_partial_assignment)
+    if positive_branch_result:
+        return positive_branch_result
+    if negative_branch_result:
+        return negative_branch_result
+    return False
+
+clause_set = load_dimacs('dimacs.txt')
+print(dpll_sat_solve(clause_set))
